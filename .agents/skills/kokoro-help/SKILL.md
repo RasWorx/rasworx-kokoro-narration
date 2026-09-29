@@ -7,7 +7,7 @@ description: Expert help for this local Kokoro-82M text-to-speech project on Win
 
 This folder is an offline narration tool: scripts in `input\` (`.txt`, `.md`) become MP3s in `output\` via `generate.py`, using Kokoro-82M on the RTX 5050. `AGENTS.md` in the project root is the user-facing manual; this skill adds the deeper knowledge needed to change voices and parameters well and to fix problems.
 
-There is also a desktop window, `ui.bat` / `ui.py` (see `AGENTS.md`, "Using the window"; theme in `ui_theme.py`, settings remembered in `settings.json`, `setup.bat` installs everything). It imports its cleaning, `synthesize()` and MP3 export from `generate.py`, so changes there apply to both; its errors go to `ui.log`.
+There is also a desktop window, `ui.bat` / `ui.py` (see `AGENTS.md`, "Using the window"; theme in `ui_theme.py`, settings remembered in `settings.json`, `setup.bat` installs everything). It imports its cleaning, `synthesize()` and MP3 export from `generate.py`, so changes there apply to both; its errors go to `ui.log`. It also has a Preview button (plays the opening of a script without saving), drag and drop, and a Pronunciations editor. The version number is in `version.py` (`generate.py --version`).
 
 ## Ground rules (why they matter)
 
@@ -35,7 +35,8 @@ There is also a desktop window, `ui.bat` / `ui.py` (see `AGENTS.md`, "Using the 
 | Force accent | `--accent a` / `--accent b` (default: first letter of the voice) |
 | No GPU / CUDA error | `--cpu` (slower but works) |
 | Double-click with options | `generate.bat --voice am_michael --speed 0.95` |
-| MP3 too quiet | `.venv\Scripts\python .agents\skills\kokoro-help\scripts
+| Old volume (no loudness boost) | `--no-normalize`. Loudness normalisation to about -16 dBFS RMS is on by default in both the CLI and the window |
+| MP3 still too quiet or too loud | `.venv\Scripts\python .agents\skills\kokoro-help\scripts
 ormalize.py output\ep.mp3` (writes `ep-loud.mp3`, about podcast loudness) |
 
 Blend strings contain commas, and PowerShell treats an unquoted `a,b` as an array, so quote them when giving PowerShell commands: `--voice "bm_george,bm_george,bm_fable"`. No spaces around the commas. The first voice's letter sets the accent. Naming a file on the command line always regenerates it (and overwrites its MP3 in `output\`), so mention that when it matters.
@@ -59,6 +60,7 @@ Files land in `output\previews\` named like `bm_george@0.9.mp3`. First use of a 
 
 ## Fixing pronunciation and script problems
 
+0. **Fix a word for every script:** add `word = respelling` or `word = /IPA/` to `pronunciations.txt` (or the window's Pronunciations button). `generate.py` applies it after Markdown cleaning (`prepare_text()`), so it works in `.txt` and `.md`, for whole words in any case. `phonemes.py --file` goes through the same code, so it shows the dictionary's effect.
 1. Find out what Kokoro "hears":
    ```
    .venv\Scripts\python .agents\skills\kokoro-help\scripts\phonemes.py --file input\episode-01.md --words

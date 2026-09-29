@@ -6,7 +6,8 @@ param([switch]$Cpu, [switch]$NoShortcut)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
-Write-Host "Installing into: $root" -ForegroundColor Cyan
+$version = (Select-String -Path 'version.py' -Pattern '__version__\s*=\s*"([^"]+)"' | Select-Object -First 1).Matches.Groups[1].Value
+Write-Host "Installing Kokoro narration $version into: $root" -ForegroundColor Cyan
 
 function Step($text) { Write-Host "`n== $text" -ForegroundColor Cyan }
 function Run($exe, $arguments) {

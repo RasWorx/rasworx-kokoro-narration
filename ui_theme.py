@@ -22,7 +22,9 @@ SCROLL = "#3A4454"
 SUCCESS = "#5DD39B"
 WARNING = "#F5C063"
 WARNING_BG = "#3A2A08"
+SUCCESS_BG = "#123B2C"
 ERROR = "#FF9A8F"
+ERROR_BG = "#3B1B1A"
 
 
 def apply_theme(root):
@@ -33,7 +35,7 @@ def apply_theme(root):
     medium = "Montserrat Medium" if "Montserrat Medium" in families else family
     heavy = "normal" if semibold != family else "bold"
     fonts = {
-        "title": tkfont.Font(root, family=semibold, size=15, weight=heavy),
+        "title": tkfont.Font(root, family=semibold, size=16, weight=heavy),
         "body": tkfont.Font(root, family=family, size=10),
         "small": tkfont.Font(root, family=family, size=9),
         "key": tkfont.Font(root, family=medium, size=8, weight="normal" if medium != family else "bold"),
@@ -51,7 +53,11 @@ def apply_theme(root):
     s.configure("Key.TLabel", foreground=TEXT_MUTED, font=fonts["key"])
     s.configure("Muted.TLabel", foreground=TEXT_MUTED, font=fonts["small"])
     for name, colour in (("Status", TEXT), ("Success", SUCCESS), ("Error", ERROR), ("Busy", BLUE_TEXT)):
-        s.configure(f"{name}.TLabel", background=CHARCOAL, foreground=colour)
+        s.configure(f"{name}.TLabel", foreground=colour)  # sits on the card, so it keeps the card background
+    # Script-check chip: the background carries the state as well as the text colour
+    for name, back, fore in (("Chip", FIELD_OFF, TEXT_MUTED), ("ChipOk", SUCCESS_BG, SUCCESS),
+                             ("ChipWarn", WARNING_BG, WARNING), ("ChipBad", ERROR_BG, ERROR)):
+        s.configure(f"{name}.TLabel", background=back, foreground=fore, font=fonts["small"], padding=(10, 4))
 
     s.configure("TButton", background=SLATE, foreground=BLUE_TEXT, font=fonts["button"], padding=(14, 6),
                 borderwidth=1, bordercolor=BLUE_TEXT, lightcolor=SLATE, darkcolor=SLATE, focuscolor=BLUE)
@@ -63,6 +69,13 @@ def apply_theme(root):
                 bordercolor=BLUE, lightcolor=BLUE, darkcolor=BLUE, focuscolor=BLUE_HOVER)
     s.map("Primary.TButton", background=[("disabled", "#3A4454"), ("pressed", BLUE_HOVER), ("active", BLUE_HOVER)],
           foreground=[("disabled", DISABLED)], bordercolor=[("disabled", "#3A4454")])
+    s.map("TButton", bordercolor=[("disabled", BORDER), ("focus", TEXT_STRONG)])
+    # Segmented control (File | Paste): joined toggle buttons, the selected one filled blue
+    s.configure("Seg.Toolbutton", background=FIELD, foreground=TEXT_MUTED, font=fonts["button"], padding=(16, 6),
+                borderwidth=1, bordercolor=BORDER, lightcolor=FIELD, darkcolor=FIELD, focuscolor=FIELD, relief="flat")
+    s.map("Seg.Toolbutton", background=[("selected", BLUE), ("active", BLUE_SOFT)],
+          foreground=[("selected", "#FFFFFF"), ("active", TEXT_STRONG)], bordercolor=[("selected", BLUE)],
+          lightcolor=[("selected", BLUE)], darkcolor=[("selected", BLUE)])
     s.configure("Link.TButton", background=SLATE, foreground=BLUE_TEXT, borderwidth=0, padding=(6, 2),
                 font=fonts["small"])
     s.map("Link.TButton", background=[("active", BLUE_SOFT)])
@@ -88,14 +101,18 @@ def apply_theme(root):
                 indicatorforeground=BLUE, indicatormargin=(0, 0, 8, 0), focuscolor=SLATE)
     s.map("TRadiobutton", background=[("active", SLATE)],
           indicatorbackground=[("selected", BLUE)], indicatorforeground=[("selected", "#FFFFFF")])
+    s.configure("TCheckbutton", background=SLATE, foreground=TEXT, indicatorbackground=FIELD,
+                indicatorforeground="#FFFFFF", indicatormargin=(0, 0, 8, 0), focuscolor=SLATE)
+    s.map("TCheckbutton", background=[("active", SLATE)], indicatorbackground=[("selected", BLUE)])
     s.configure("Brand.Horizontal.TProgressbar", background=BLUE, troughcolor=TROUGH, bordercolor=TROUGH,
                 lightcolor=BLUE, darkcolor=BLUE, thickness=8)
     s.configure("Vertical.TScrollbar", background=SCROLL, troughcolor=TROUGH, bordercolor=TROUGH,
                 lightcolor=SCROLL, darkcolor=SCROLL, arrowcolor=TEXT_MUTED, gripcount=0)
     s.map("Vertical.TScrollbar", background=[("active", BLUE_TEXT)])
     s.configure("Brand.Treeview", background=FIELD, fieldbackground=FIELD, foreground=TEXT_STRONG, borderwidth=0,
-                rowheight=26, font=fonts["body"])
-    s.map("Brand.Treeview", background=[("selected", BLUE)], foreground=[("selected", "#FFFFFF")])
+                bordercolor=FIELD, lightcolor=FIELD, darkcolor=FIELD, rowheight=28, font=fonts["body"])
+    s.map("Brand.Treeview", background=[("selected", BLUE)], foreground=[("selected", "#FFFFFF")],
+          bordercolor=[("focus", FIELD)], lightcolor=[("focus", FIELD)], darkcolor=[("focus", FIELD)])
     s.configure("Brand.Treeview.Heading", background=SLATE, foreground=TEXT_MUTED, font=fonts["key"],
                 borderwidth=0, padding=(8, 6))
     s.map("Brand.Treeview.Heading", background=[("active", BLUE_SOFT)])

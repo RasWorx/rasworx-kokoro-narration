@@ -16,6 +16,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from version import __version__
+
 ROOT = Path(__file__).resolve().parent
 INPUT_DIR = ROOT / "input"
 OUTPUT_DIR = ROOT / "output"
@@ -23,6 +25,9 @@ SAMPLE_RATE = 24000
 EXTENSIONS = {".txt", ".md", ".markdown"}
 DEFAULT_VOICE = "af_kore"
 LANG_CODES = "abefhijpz"  # Kokoro language codes; j and z need extra packages (misaki[ja], misaki[zh])
+PRONUNCIATIONS_FILE = ROOT / "pronunciations.txt"
+LOUDNESS_TARGET = -16.0  # dBFS RMS, about podcast loudness (Kokoro's own output is near -26)
+PEAK_CEILING = -1.0  # dBFS
 
 
 def sentence(line: str) -> str:
@@ -68,11 +73,85 @@ def paragraphs_of(text: str) -> list[str]:
     return [p for p in paras if p]
 
 
-def load_text(path: Path) -> str:
-    text = path.read_text(encoding="utf-8-sig")
-    if path.suffix.lower() in {".md", ".markdown"}:
+_MARKUP = re.compile(r"(\[[^\]]*\]\([^)]*\))")  # [word](/ipa/) pronunciation markup: never rewritten
+
+
+def parse_pronunciations(text: str) -> tuple[list[tuple[str, str]], list[tuple[int, str]]]:
+    """Parse a pronunciations file: `word = respelling` or `word = /IPA/`, `#` starts a comment.
+
+    Returns (entries, errors); each error is (line number, message).
+    """
+    entries, errors = [], []
+    for number, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        word, sep, spoken = (part.strip() for part in line.partition("="))
+        if not sep or not word or not spoken:
+            errors.append((number, "expected `word = how to say it`"))
+        elif spoken == "/" or (spoken.startswith("/") and not spoken.endswith("/")):
+            errors.append((number, "IPA must be written between two slashes, like /kˈOkəɹO/"))
+        else:
+            entries.append((word, spoken))
+    return entries, errors
+
+
+def load_pronunciations(path: Path | None = None) -> list[tuple[str, str]]:
+    """Entries of the pronunciations file (empty when it is missing); bad lines are skipped."""
+    path = path or PRONUNCIATIONS_FILE
+    try:
+        entries, errors = parse_pronunciations(path.read_text(encoding="utf-8-sig"))
+    except OSError:
+        return []
+    for number, message in errors:
+        print(f"{path.name} line {number}: {message} (skipped)", file=sys.stderr)
+    return entries
+
+
+def apply_pronunciations(text: str, entries: list[tuple[str, str]]) -> str:
+    """Replace whole words (any case) by their respelling, or wrap them in [word](/IPA/) markup."""
+    if not entries:
+        return text
+    table = {word.lower(): spoken for word, spoken in entries}
+    words = sorted(table, key=len, reverse=True)  # longest first, so "New York" beats "New"
+    pattern = re.compile(r"(?<!\w)(?:" + "|".join(re.escape(w) for w in words) + r")(?!\w)", re.I)
+
+    def swap(match: re.Match) -> str:
+        spoken = table[match.group(0).lower()]
+        if len(spoken) > 2 and spoken.startswith("/") and spoken.endswith("/"):
+            return f"[{match.group(0)}]({spoken})"
+        return spoken
+
+    return "".join(part if i % 2 else pattern.sub(swap, part) for i, part in enumerate(_MARKUP.split(text)))
+
+
+def prepare_text(text: str, markdown: bool) -> str:
+    """Raw script text -> what is spoken: Markdown cleaned (if Markdown), then the pronunciation dictionary."""
+    if markdown:
         text = markdown_to_speech(text)
-    return text
+    return apply_pronunciations(text, load_pronunciations())
+
+
+def load_text(path: Path) -> str:
+    return prepare_text(path.read_text(encoding="utf-8-sig"), path.suffix.lower() in {".md", ".markdown"})
+
+
+def normalize_loudness(audio: np.ndarray, target: float = LOUDNESS_TARGET, ceiling: float = PEAK_CEILING) -> np.ndarray:
+    """Raise speech to about podcast loudness (RMS `target` dBFS, measured on speech only, max +20 dB).
+
+    Loud peaks are rounded off by a soft limiter so they stay under `ceiling` dBFS instead of clipping.
+    """
+    speech = audio[np.abs(audio) > 1e-3]  # ignore paragraph silences when measuring
+    if not speech.size:
+        return audio
+    rms = float(np.sqrt(np.mean(speech**2)))
+    boosted = (audio * min(10 ** (target / 20) / max(rms, 1e-9), 10.0)).astype(np.float32)
+    top = 10 ** (ceiling / 20)
+    knee = top * 0.5  # samples below this stay untouched
+    magnitude = np.abs(boosted)
+    over = magnitude > knee
+    boosted[over] = np.sign(boosted[over]) * (knee + (top - knee) * np.tanh((magnitude[over] - knee) / (top - knee)))
+    return boosted
 
 
 def pending_files(force: bool) -> list[Path]:
@@ -107,6 +186,15 @@ def synthesize(pipeline, text: str, voice: str, speed: float, pause: float,
     if not progress:
         print()
     return np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
+
+
+def render_audio(pipeline, text: str, voice: str, speed: float, pause: float, normalize: bool = True,
+                 progress=None, stop=None) -> np.ndarray | None:
+    """Text -> audio, the same for the CLI and the window: synthesize, then optionally normalize the loudness."""
+    if not paragraphs_of(text):
+        raise ValueError("There is no text to speak.")
+    audio = synthesize(pipeline, text, voice, speed, pause, progress, stop)
+    return normalize_loudness(audio) if normalize and audio is not None else audio
 
 
 def write_mp3(audio: np.ndarray, path: Path) -> Path:
@@ -154,6 +242,9 @@ def main() -> int:
     parser.add_argument("--pause", type=float, default=0.4, help="seconds of silence between paragraphs")
     parser.add_argument("--force", action="store_true", help="regenerate even if the mp3 is up to date")
     parser.add_argument("--cpu", action="store_true", help="run on CPU instead of the GPU")
+    parser.add_argument("--no-normalize", action="store_true",
+                        help=f"keep Kokoro's own (quiet) volume instead of raising it to about {LOUDNESS_TARGET:.0f} dBFS RMS")
+    parser.add_argument("--version", action="version", version=f"kokoro-narration {__version__}")
     args = parser.parse_args()
 
     voice = resolve_voice(args.voice)
@@ -176,7 +267,7 @@ def main() -> int:
         print(f"{path.name}")
         text = load_text(path)
         start = time.perf_counter()
-        audio = synthesize(pipeline, text, voice, args.speed, args.pause)
+        audio = render_audio(pipeline, text, voice, args.speed, args.pause, not args.no_normalize)
         out = write_mp3(audio, OUTPUT_DIR / f"{path.stem}.mp3")
         minutes = len(audio) / SAMPLE_RATE / 60
         print(f"  -> {out}  ({minutes:.1f} min audio in {time.perf_counter() - start:.0f}s)")

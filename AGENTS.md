@@ -26,15 +26,20 @@ Running with no arguments converts every file in `input\` that has no MP3 yet, o
 
 Double-click `ui.bat` (or the desktop shortcut made by `setup.bat`) to open the Kokoro narration window (RasWorx dark style, starts maximized). It runs `.venv\Scripts\pythonw.exe ui.py`, so no console window stays open, and it reuses `generate.py` for cleaning, synthesis and MP3 export, so the audio is identical to the CLI.
 
-- **Input:** choose **File** and Browse to a `.txt` / `.md` / `.markdown` script (read where it is, never changed), or choose **Paste** and paste plain text or Markdown. Pasted text is saved as `input\<name>.md` first, so `generate.py` can re-render it later. The name defaults to the first heading or first five words; letters, digits, `-` and `_` only.
+- **Version:** `version.py` is the single source (semantic versioning). It shows in the window title and header and in `generate.py --version`. `CHANGELOG.md` records each release; a release is also tagged `v<version>` in git.
+- **Input:** choose **File** and Browse (or drag a script onto the window; needs `tkinterdnd2`) to a `.txt` / `.md` / `.markdown` script (read where it is, never changed; the box shows a read-only preview), or choose **Paste** and paste plain text or Markdown. Pasted text is saved as `input\<name>.md` first, so `generate.py` can re-render it later. The name defaults to the first heading or first five words; letters, digits, `-` and `_` only.
 - **Output:** always `output\<name>.mp3`. If the input or output file already exists, the window asks before overwriting.
 - **Mood** presets fill Voice, Speed and Pause (still editable; editing switches back to Custom). **Voice** lists the US voices and also accepts a typed blend such as `af_heart,af_bella`. Speed 0.70 to 1.30, Pause 0 to 3 s.
-- **Settings are remembered:** Mood, Voice, Speed and Pause are saved to `settings.json` (git-ignored) when the window closes and restored on the next start. A missing or corrupt file means defaults.
+- **Preview** renders the opening of the script (about 300 characters, cut at a sentence end) with the current Voice, Speed and loudness setting and plays it from memory (nothing is written to disk). Click again to stop. It is disabled while converting.
+- **Normalize loudness** (checkbox, default on) raises the speech to about -16 dBFS RMS with a soft limiter under -1 dBFS (`normalize_loudness()` in `generate.py`). The CLI does the same unless `--no-normalize` is given.
+- **Pronunciations** opens an editor for `pronunciations.txt` (git-ignored, personal). Format: `word = respelling` or `word = /IPA/`, `#` notes. `generate.py` applies it to every script after Markdown cleaning (`prepare_text()`), for whole words in any case, and leaves existing `[word](/ipa/)` markup alone. The CLI uses the same file.
+- **Settings are remembered:** Mood, Voice, Speed, Pause and Normalize loudness are saved to `settings.json` (git-ignored) when the window closes and restored on the next start. A missing or corrupt file means defaults.
 - **Clear** (top right) returns the input, script check, progress and status to the just-opened state. It keeps the loaded model and the settings.
-- **Script check** runs the `tts-output` linter (project copy in `.agents\skills\tts-output`, else the global `~\.claude\skills` copy) when a file is picked and on Convert. Click the summary or **View** to open the list of warnings. Warnings never block conversion.
-- **Output files** (right panel) lists the MP3/WAV files in `output\` (not `previews\`). **Play selected** (or double-click) plays the first selected file. **Delete selected** deletes the selected files after a confirmation that lists them; it is the only place the tools delete anything in `output\`, and only on the user's click.
-- **Open Input Folder** and **Open Output Folder** open `input\` and `output\` in Explorer.
-- The model loads in the background when the window opens (status "Ready (model on cuda)"). **Cancel** stops at the next paragraph and writes no MP3. **Play** plays the last MP3 made.
+- **Keyboard:** Ctrl+Enter convert, Ctrl+O browse, Ctrl+P preview, Ctrl+L clear, Esc cancel, F5 refresh files.
+- **Script check** (a green / amber / red chip) runs the `tts-output` linter (project copy in `.agents\skills\tts-output`, else the global `~\.claude\skills` copy) when a file is picked and on Convert. Click the chip or **View** to open the list of warnings. Warnings never block conversion.
+- **Output files** (right panel) lists the MP3/WAV files in `output\` (not `previews\`). **Play selected** (or double-click) plays the first selected file; the file just made is selected after a conversion. **Delete selected** deletes the selected files after a confirmation that lists them; it is the only place the tools delete anything in `output\`, and only on the user's click.
+- **Input folder** and **Output folder** (top of the Output files panel) open `input\` and `output\` in Explorer.
+- The model loads in the background when the window opens (status "Ready (model on cuda)"). **Cancel** stops at the next paragraph and writes no MP3.
 - Errors and Kokoro's own messages go to `ui.log` in this folder.
 
 ## Folder layout
@@ -47,7 +52,9 @@ Double-click `ui.bat` (or the desktop shortcut made by `setup.bat`) to open the 
 | `generate.bat` | Double-click shortcut; passes any arguments through to `generate.py`. |
 | `ui.py` | The desktop window (tkinter). Imports its conversion code from `generate.py`. |
 | `ui_theme.py` | RasWorx palette, ttk styles and dark title bar used by `ui.py`. |
-| `settings.json` | Saved Mood / Voice / Speed / Pause. Created by the window, git-ignored. |
+| `settings.json` | Saved Mood / Voice / Speed / Pause / Normalize loudness. Created by the window, git-ignored. |
+| `pronunciations.txt` | Your pronunciation dictionary. Created by the Pronunciations editor, git-ignored. |
+| `version.py`, `CHANGELOG.md` | The release number (one source of truth) and what changed in each release. |
 | `setup.bat`, `setup.ps1` | One-step install into the folder they are run from: `.venv`, torch (CUDA 12.8), `requirements.txt`, desktop shortcut, skill links. |
 | `requirements.txt` | Pinned Python packages (torch is installed separately by `setup.ps1`). |
 | `README.md`, `LICENSE` | Public description of the tool and the MIT licence. |
@@ -59,7 +66,7 @@ Double-click `ui.bat` (or the desktop shortcut made by `setup.bat`) to open the 
 ## Options
 
 ```
-.venv\Scripts\python generate.py [files...] [--voice ID] [--accent a|b] [--speed N] [--pause SECONDS] [--force] [--cpu]
+.venv\Scripts\python generate.py [files...] [--voice ID] [--accent a|b] [--speed N] [--pause SECONDS] [--force] [--cpu] [--no-normalize] [--version]
 ```
 
 | Option | Default | Meaning |
@@ -71,6 +78,8 @@ Double-click `ui.bat` (or the desktop shortcut made by `setup.bat`) to open the 
 | `--pause` | `0.4` | Seconds of silence inserted between paragraphs. |
 | `--force` | off | Regenerate even if the MP3 is already up to date. |
 | `--cpu` | off | Run on the CPU instead of the GPU (slower, but works without CUDA). |
+| `--no-normalize` | off | Skip loudness normalisation (default: speech is raised to about -16 dBFS RMS). |
+| `--version` | | Print the version and exit. |
 
 Examples:
 ```
