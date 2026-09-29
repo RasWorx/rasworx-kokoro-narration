@@ -1,0 +1,6 @@
+# Installed by setup.bat after torch. torch is NOT listed here: the CUDA 12.8 build needed by
+# RTX 50-series GPUs comes from its own index (see setup.ps1):
+#   uv pip install --python .venv\Scripts\python.exe torch --index-url https://download.pytorch.org/whl/cu128
+kokoro==0.9.4
+soundfile==0.14.0
+numpy==2.5.3

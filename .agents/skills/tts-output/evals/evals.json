@@ -1,0 +1,23 @@
+{
+  "skill_name": "tts-output",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/tts-output Write a 3-minute calm, warm narration explaining how home solar panels and batteries work for a first-time buyer. Save it as solar-intro.md.",
+      "expected_output": "A ~450-word speech-ready .md script: paragraphs of about 20-60 words, no short headings, numbers spelled out, straight apostrophes, no caps/emphasis/tags, tone carried by wording; linter run and clean; report gives word count, minutes and suggested --speed/--pause/--voice.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "/tts-output Turn draft.md into something Kokoro can read out as an excited product-launch announcement.",
+      "expected_output": "A new file (draft left untouched) rewriting the draft: digits, %, $, Q3, e.g., URLs, table and bullet list converted to spoken prose; ALL CAPS and !!! removed; short punchy sentences grouped inside 30-50 word paragraphs; excited-mood flags suggested (speed ~1.05-1.1, pause ~0.3, Heart or Bella).",
+      "files": ["evals/files/draft.md"]
+    },
+    {
+      "id": 3,
+      "prompt": "/tts-output I need a short sad, reflective passage (about one minute) for the end of a documentary episode about a closed-down mining town. The voice should sound like it's asking the listener questions.",
+      "expected_output": "~150-word script; explains that Kokoro cannot raise pitch on questions or act sad, so questions are made obvious by wording and sadness by plain words, pacing, paragraph breaks and slower speed (~0.85-0.9) with longer pauses (~0.7-1.0); no fake emotion tags.",
+      "files": []
+    }
+  ]
+}

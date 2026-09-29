@@ -1,0 +1,55 @@
+{
+  "skill_name": "kokoro-help",
+  "evals": [
+    {
+      "id": 1,
+      "name": "calmer-british-voice-and-blend",
+      "prompt": "the sample narration (input\\sample.md) sounds too fast and a bit bright for me. i want a calmer british male narrator, a bit slower, with longer gaps between paragraphs. what exact command do i run? and can i do a blend of two british guys but mostly george?",
+      "expected_output": "Exact generate.py command using .venv python, a British male voice (bm_george), speed below 1, pause above 0.4, --force or the file named; weighted blend via repeating names (bm_george,bm_george,bm_fable) or a .pt approach; suggests previewing.",
+      "files": [],
+      "assertions": [
+        "Uses British male voice bm_george",
+        "Command sets speed below 1.0",
+        "Command sets pause above default 0.4",
+        "Forces regeneration (--force or names input\\sample.md)",
+        "Gives a george-weighted blend that works (repetition or weighted tensor)",
+        "Runs via .venv python or generate.bat (never system python)"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "sa-bakery-script-pronunciation",
+      "prompt": "Write me a short narration script (around 150 words) for a promo about our new bakery opening in Pietermaritzburg on 3/4/2026. Mention: sourdough is R45 a loaf, call us on 082 555 1234, we're at 12 St. George's St. Make sure Kokoro will actually read all of it correctly.",
+      "expected_output": "A Markdown/txt narration script with the date, rand price, phone number and street spelled out in words, no 'St.' abbreviations, paragraphs separated by blank lines, and a note about the hard-to-pronounce town name.",
+      "files": [],
+      "assertions": [
+        "A script file was written",
+        "No 'R' + digits rand amounts in script",
+        "No numeric slash date in script",
+        "Phone number not left as digits",
+        "No 'St.' abbreviation in script",
+        "Paragraphs separated by blank lines (3+ paragraphs)",
+        "Script length 100-220 words",
+        "No misaki link syntax inside a .md script (would be stripped)",
+        "Answer addresses how Pietermaritzburg will be pronounced"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "windows-offline-gpu-troubleshooting",
+      "prompt": "every time i run generate.bat i get 'To support symlinks on Windows, you either need to activate Developer Mode...' and it says 'Loading Kokoro on cpu'. also i tried --voice bf_emma on the plane with no wifi and it crashed. whats going on and how do i fix all three?",
+      "expected_output": "Explains symlink warning is harmless (HF_HUB_DISABLE_SYMLINKS_WARNING), CPU fallback means torch CUDA not available (check with torch.cuda.is_available, reinstall cu128 torch, driver), voices download lazily so pre-download while online (snapshot_download / run once) and HF_HUB_OFFLINE.",
+      "files": [],
+      "assertions": [
+        "Says symlink warning is harmless",
+        "Gives HF_HUB_DISABLE_SYMLINKS_WARNING to silence it",
+        "CPU: checks torch.cuda.is_available",
+        "CPU: points to cu128 torch build for RTX 5050/Blackwell",
+        "Offline: explains voices download on first use",
+        "Offline: gives a pre-download method",
+        "Mentions HF_HUB_OFFLINE",
+        "Does not tell user to install system espeak-ng"
+      ]
+    }
+  ]
+}
