@@ -41,12 +41,27 @@ Everything below was checked against the installed kokoro 0.9.4 / misaki 0.9.4 i
 | `R100`, `ZAR 50` | "ar one hundred", "Z A R fifty" | **bad** – South African rand is not supported; write "one hundred rand" |
 | `082 555 1234` | "eighty-two five hundred fifty-five twelve thirty-four" | **bad** – write digits as words |
 | `7:30 pm` | "seven thirty P M" | fine; colon adds a tiny pause |
+| `30 September` | "thirty September" | good |
+| `Proverbs 6:10` | "Proverbs six, ten" (colon becomes a pause) | **bad** – write "Proverbs chapter six, verse ten" |
+| `Proverbs 6:6 to 11` | "six six to eleven" | **bad** – write "chapter six, verses six to eleven" |
+| `verses 9 to 11` | "verses nine to eleven" | good |
+| `Nog 'n bietjie slaap` (Afrikaans) | "nog en bee-etch-ee slap", read with English rules | **bad** – see "Text in another language" below |
 | `NASA`, `SQL` | "nasa", "sequel" | known acronyms read as words |
 | `API`, `MP3` | "A P I", "M P three" | spelled out |
 | `&`, `+`, `@` | "and", "plus", "at" | good |
 | made-up words | espeak-ng fallback guess | check them |
 
 Rule of thumb for narration scripts: **spell out** dates, phone numbers, version numbers, codes, 4-digit non-year quantities, and Latin abbreviations. Leave simple money, percentages, years, ordinals and ordinary counts as digits.
+
+### Text in another language
+
+The voice's first letter picks the language rules for the whole script. With a US voice (`a*`), a quote or phrase in Afrikaans, German, Dutch and so on is read as if it were English, and the result is garbled (checked 2026-09-30: Afrikaans `'n` became "en", `bietjie` became "bee-etch-ee"). Options, best first:
+
+1. Scripts are English only. Translate the text into English and leave the original out (Afrikaans is not supported by Kokoro at all; keep the original in a separate written version if it is needed).
+2. For a single word or name, respell it in English sounds or use `pronunciations.txt`.
+3. For a whole passage in another supported language, render it as its own script with a voice for that language (`e*` Spanish, `f*` French, `i*` Italian and so on). Afrikaans has no voice at all.
+
+The `tts-output` linter warns about `'n`, runs of common foreign words, and (as a note) accented letters. Names such as "José" are fine.
 
 ## 2. Fixing a mispronounced word
 

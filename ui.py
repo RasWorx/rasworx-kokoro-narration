@@ -27,12 +27,13 @@ from tkinter import font as tkfont
 import soundfile as sf
 
 import generate
+import md_preview
 from generate import (
     DEFAULT_VOICE, EXTENSIONS, INPUT_DIR, OUTPUT_DIR, ROOT, SAMPLE_RATE,
     accent_of, load_text, paragraphs_of, parse_pronunciations, prepare_text, render_audio, resolve_voice, write_mp3,
 )
 from ui_theme import (
-    BLUE, BORDER, CHARCOAL, ERROR, FIELD, FIELD_OFF, SUCCESS, TEXT_MUTED, TEXT_STRONG, WARNING, WARNING_BG,
+    BLUE, BORDER, CHARCOAL, ERROR, FIELD, FIELD_OFF, SUCCESS, TEXT, TEXT_MUTED, TEXT_STRONG, WARNING, WARNING_BG,
     apply_theme, dark_title_bar,
 )
 from version import __version__
@@ -258,6 +259,8 @@ class App(tk.Tk):
         self.paste_text = ""
         self.paste_name = ""
         self._named_from = ""
+        self.view_var = tk.StringVar(value="edit")  # Markdown text shows "preview" (rendered) or "edit" (raw)
+        self._rendered = None  # (text, background) the preview currently shows
         self.hover_row = ""
         self.dnd = self._init_dnd()
 
@@ -357,6 +360,12 @@ class App(tk.Tk):
         self.browse_btn = ttk.Button(row, text="Browse", command=self._browse)
         self.browse_btn.grid(row=0, column=2)
         Tooltip(self.browse_btn, "Pick a script  (Ctrl+O)", small)
+        # Preview | Edit: only shown while the text is Markdown
+        self.view_toggle = ttk.Frame(row)
+        for column, (label, value) in enumerate((("Preview", "preview"), ("Edit", "edit"))):
+            ttk.Radiobutton(self.view_toggle, text=label, value=value, variable=self.view_var,
+                            command=self._on_view_toggle, style="Seg.Toolbutton").grid(row=0, column=column)
+        Tooltip(self.view_toggle, "Rendered Markdown or the raw text  (Ctrl+E)", small)
 
         # Text box: pasted text, or a read-only preview of the picked file. Also the drop zone.
         self.drop_edge = tk.Frame(f, background=BORDER, padx=1, pady=1)
@@ -368,10 +377,19 @@ class App(tk.Tk):
                             insertbackground=TEXT_STRONG, selectbackground=BLUE, selectforeground="#FFFFFF",
                             highlightthickness=0)
         self.text.grid(row=0, column=0, sticky="nsew")
-        scroll = ttk.Scrollbar(self.drop_edge, command=self.text.yview)
-        scroll.grid(row=0, column=1, sticky="ns")
-        self.text.configure(yscrollcommand=scroll.set)
+        # Read-only rendered view of the same text, in the same grid cell (shown instead of the text box)
+        self.view = tk.Text(self.drop_edge, width=10, height=8, wrap="word", font=self.fonts["body"], relief="flat",
+                            borderwidth=0, padx=14, pady=10, foreground=TEXT, highlightthickness=0, cursor="arrow",
+                            selectbackground=BLUE, selectforeground="#FFFFFF", state="disabled", spacing2=3)
+        self.view.grid(row=0, column=0, sticky="nsew")
+        self.view.grid_remove()
+        md_preview.configure_tags(self.view, self.fonts["body"])
+        self.box_scroll = ttk.Scrollbar(self.drop_edge, command=self.text.yview)
+        self.box_scroll.grid(row=0, column=1, sticky="ns")
+        self.text.configure(yscrollcommand=self.box_scroll.set)
         self.text.bind("<<Modified>>", self._on_text_change)
+        self.text.bind("<<Paste>>", self._on_paste, add=True)
+        self.view.bind("<Control-a>", lambda e: (self.view.tag_add("sel", "1.0", "end-1c"), "break")[1])
         self.text.bind("<Control-a>", lambda e: (self.text.tag_add("sel", "1.0", "end-1c"), "break")[1])
         for sequence, step in (("<Tab>", "tk_focusNext"), ("<Shift-Tab>", "tk_focusPrev")):  # Tab leaves the box
             self.text.bind(sequence, lambda e, step=step: (getattr(e.widget, step)().focus(), "break")[1])
@@ -521,11 +539,12 @@ class App(tk.Tk):
 
     def _bind_keys(self):
         keys = {"<Control-Return>": self._key_convert, "<Control-o>": self._key_browse,
-                "<Control-l>": self._clear, "<Control-p>": self._preview}
+                "<Control-l>": self._clear, "<Control-p>": self._preview, "<Control-e>": self._toggle_view}
         for sequence, action in keys.items():
             handler = lambda e, action=action: (action(), "break")[1]  # "break": the text box must not also act
             self.bind(sequence, handler)
             self.text.bind(sequence, handler)  # it would otherwise insert a line or move the cursor
+            self.view.bind(sequence, handler)
         self.bind("<Escape>", lambda e: self._cancel() if self.busy and not self.stop_event.is_set() else None)
         self.bind("<F5>", lambda e: self._refresh_files())
 
@@ -580,7 +599,50 @@ class App(tk.Tk):
         self.text.edit_reset()
         self.text.edit_modified(False)
         self.text.configure(state="normal" if editable else "disabled", background=FIELD if editable else FIELD_OFF)
+        self.view_var.set("preview" if md_preview.looks_like_markdown(content) else "edit")  # typing must not flip views
+        self._refresh_view()
         self._update_hint()
+
+    # ---------- Markdown preview ----------
+
+    def _refresh_view(self, was_empty=False):
+        """Show the rendered Markdown or the raw text box. `was_empty`: a paste just filled an empty box."""
+        raw = self.text.get("1.0", "end-1c")
+        markdown = md_preview.looks_like_markdown(raw)
+        if markdown and was_empty:
+            self.view_var.set("preview")
+        if markdown:
+            self.view_toggle.grid(row=0, column=3, padx=(10, 0))
+        else:
+            self.view_toggle.grid_remove()
+        showing, hidden = (self.view, self.text) if markdown and self.view_var.get() == "preview" else (self.text, self.view)
+        if showing is self.view:
+            background = self.text.cget("background")
+            if self._rendered != (raw, background):  # skip the work when nothing changed
+                self.view.configure(background=background)
+                md_preview.render(self.view, raw)
+                self.view.yview_moveto(0)
+                self._rendered = (raw, background)
+        if showing.winfo_manager() != "grid":
+            hidden.grid_remove()
+            showing.grid()
+        hidden.configure(yscrollcommand="")
+        showing.configure(yscrollcommand=self.box_scroll.set)
+        self.box_scroll.configure(command=showing.yview)
+
+    def _on_view_toggle(self):
+        self._refresh_view()
+        if self.view_var.get() == "edit" and self.text.cget("state") == "normal":
+            self.text.focus_set()
+
+    def _toggle_view(self):
+        if self.view_toggle.winfo_ismapped():
+            self.view_var.set("edit" if self.view_var.get() == "preview" else "preview")
+            self._on_view_toggle()
+
+    def _on_paste(self, _event):
+        empty = not self.text.get("1.0", "end-1c").strip()
+        self.after_idle(self._refresh_view, empty)
 
     def _update_hint(self):
         """The centred empty-state message over the text box."""
@@ -606,7 +668,7 @@ class App(tk.Tk):
 
     def _enable_drop(self):
         from tkinterdnd2 import DND_FILES
-        for widget in (self.text, self.hint):
+        for widget in (self.text, self.view, self.hint):
             widget.drop_target_register(DND_FILES)
             widget.dnd_bind("<<DropEnter>>", self._on_drop_enter)
             widget.dnd_bind("<<DropLeave>>", self._on_drop_leave)
@@ -656,6 +718,7 @@ class App(tk.Tk):
 
     def _on_text_change(self, _event):
         self.text.edit_modified(False)
+        self._refresh_view()
         self._update_hint()
         if self.mode.get() == "paste" and not self.name_touched and self.text.cget("state") == "normal":
             content = self.text.get("1.0", "end-1c")
@@ -764,9 +827,22 @@ class App(tk.Tk):
         text.configure(yscrollcommand=scroll.set)
         text.insert("1.0", "\n".join(self.warnings))
         text.configure(state="disabled")
-        ttk.Button(win, text="Close", style="Page.TButton", command=win.destroy).pack(anchor="e", padx=16, pady=12)
+        buttons = ttk.Frame(win)
+        buttons.pack(fill="x", padx=16, pady=12)
+        ttk.Button(buttons, text="Close", style="Page.TButton", command=win.destroy).pack(side="right")
+        copy = ttk.Button(buttons, text="Copy to Clipboard", style="Page.TButton")
+        copy.configure(command=lambda: self._copy_warnings(copy))
+        copy.pack(side="right", padx=(0, 8))
         win.bind("<Escape>", lambda e: win.destroy())
         win.focus_set()
+
+    def _copy_warnings(self, button):
+        """Put the script-check summary and every warning on the clipboard (for pasting into an agent chat)."""
+        self.clipboard_clear()
+        self.clipboard_append("\n".join([self.lint_var.get(), *self.warnings]))
+        self.update()  # keep the text on the clipboard after the window closes
+        button.configure(text="Copied ✓")
+        button.after(1500, lambda: button.winfo_exists() and button.configure(text="Copy to Clipboard"))
 
     def _dialog(self, title, size, minsize):
         """A dark, brand-styled child window."""

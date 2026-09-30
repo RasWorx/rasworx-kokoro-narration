@@ -4,4 +4,4 @@ Patch = fixes, minor = new features, major = changes to the input/output workflo
 Bump it here, add an entry to CHANGELOG.md, and tag the release in git (v<version>).
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"

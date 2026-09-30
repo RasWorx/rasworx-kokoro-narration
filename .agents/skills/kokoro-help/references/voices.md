@@ -12,7 +12,7 @@ Source: <https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md> (model v
 | **af_bella** | F | A | HH | **A-** | Warmer, slightly more expressive; excellent for long narration |
 | af_nicole | F | B | HH | B- | Soft, breathy, close-mic "headphones" style; calm/ASMR feel |
 | af_aoede | F | B | H | C+ | |
-| **af_kore** | F | B | H | C+ | **Project default** (user's choice) |
+| **af_kore** | F | B | H | C+ | **Project default** |
 | af_sarah | F | B | H | C+ | |
 | af_alloy | F | B | MM | C | |
 | af_nova | F | B | MM | C | |

@@ -43,7 +43,7 @@ Kokoro disables its own loguru warnings by default (truncation, language mismatc
 | `CUDA error: no kernel image is available for execution on the device` / `sm_120 is not compatible with the current PyTorch installation` | torch built for older CUDA (cu126 or earlier) cannot run on Blackwell | Needs torch ≥ 2.7 **cu128** or newer build |
 | `RuntimeError: CUDA requested but not available` | script passed `device="cuda"` without a working GPU | Use `--cpu` or fix the torch install |
 | `CUDA out of memory` | another app (game, Ollama, Chatterbox) holding VRAM | Close it; Kokoro itself needs well under 1 GB of the 8 GB. Or use `--cpu` |
-| `+cu128` build but `is_available()` is `False` on this laptop | Windows is not exposing the NVIDIA GPU: Lenovo Vantage / BIOS set to integrated-GPU-only (Hybrid off, battery saver), driver crash, or `CUDA_VISIBLE_DEVICES` set to empty/`-1` | Plug in, set GPU mode to Hybrid or dGPU in Lenovo Vantage, check Device Manager and `nvidia-smi`, clear `CUDA_VISIBLE_DEVICES` |
+| `+cu128` build but `is_available()` is `False` on a laptop | Windows is not exposing the NVIDIA GPU: Lenovo Vantage / BIOS set to integrated-GPU-only (Hybrid off, battery saver), driver crash, or `CUDA_VISIBLE_DEVICES` set to empty/`-1` | Plug in, set GPU mode to Hybrid or dGPU in Lenovo Vantage, check Device Manager and `nvidia-smi`, clear `CUDA_VISIBLE_DEVICES` |
 | Very slow even though GPU is found | laptop on battery / power-saving mode, or iGPU in use | Plug in, set Windows power mode to Best performance |
 
 Expected speed on the RTX 5050: a 12–13 minute clip in about 15 seconds. On CPU, several times slower (still usable).

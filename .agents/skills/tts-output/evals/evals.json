@@ -18,6 +18,12 @@
       "prompt": "/tts-output I need a short sad, reflective passage (about one minute) for the end of a documentary episode about a closed-down mining town. The voice should sound like it's asking the listener questions.",
       "expected_output": "~150-word script; explains that Kokoro cannot raise pitch on questions or act sad, so questions are made obvious by wording and sadness by plain words, pacing, paragraph breaks and slower speed (~0.85-0.9) with longer pauses (~0.7-1.0); no fake emotion tags.",
       "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "/tts-output Write a 5-minute morning devotion on good habits. Open with a Bible verse (Proverbs 6:10) and quote it in Afrikaans, then a list of things people put off, and end with a prayer.",
+      "expected_output": "A speech-ready .md script that avoids the structure traps: one opening sentence instead of stacked short headings; the list of put-off things folded into one 20-60 word paragraph instead of one line each; no bold-only lines; 'Father,' and 'Amen' folded into neighbouring paragraphs; the reference written as 'Proverbs chapter six, verse ten'; the whole script in English, with the Afrikaans verse translated into English and the original Afrikaans text nowhere in the file (Kokoro does not support Afrikaans; the report says so); no --- rules; linter run with no short-paragraph group listing more than a few lines.",
+      "files": []
     }
   ]
 }

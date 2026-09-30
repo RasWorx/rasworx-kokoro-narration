@@ -2,6 +2,21 @@
 
 All notable changes to RasWorx Kokoro Narration. The version number lives in `version.py` and follows [semantic versioning](https://semver.org/): patch for fixes, minor for new features, major for changes to the `input\` to `generate.py` to `output\` workflow or its folder names.
 
+## 1.2.0 - 2026-09-30
+
+### Added
+- **Markdown preview.** Pasted or loaded Markdown is shown rendered (headings, bold, italic, quotes, lists, rules, links) instead of raw syntax. A **Preview | Edit** switch beside Browse (Ctrl+E) shows the raw text for editing. Pasting Markdown into an empty box opens in Preview. New `md_preview.py`; conversion still uses the raw text.
+- **Copy to Clipboard** in the script check warnings popup: copies the summary and every warning, ready to paste into a chat when tuning a script or the `tts-output` skill.
+- Linter checks for `chapter:verse` references (read "six, ten") and for text in another language (a US voice garbles it).
+
+### Changed
+- The script check groups short headings and short paragraphs into one warning each (with their line numbers) instead of one warning per line; `--detail` restores one line each. Small numbers and years are now only a note.
+- `tts-output` and `kokoro-help` skills: new "Structure traps" guidance (one sentence per paragraph, stacked headings, bold-only lines, closings, scripture references, foreign-language quotes) and a fourth eval.
+- `AGENTS.md` rewritten for a public repository.
+
+### Fixed
+- The linter no longer reports horizontal rules (`---`) as empty paragraphs with a false "`--` is dropped" warning; `generate.py` already strips them.
+
 ## 1.1.0 - 2026-09-29
 
 ### Added

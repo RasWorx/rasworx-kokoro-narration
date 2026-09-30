@@ -1,13 +1,15 @@
 """Lint a narration script (.md or .txt) for text-to-speech, tuned for Kokoro-82M.
 
 Usage:
-    python check_tts_script.py script.md [more.md ...] [--wpm 150] [--quiet]
+    python check_tts_script.py script.md [more.md ...] [--wpm 150] [--quiet] [--detail]
 
 Standard library only. Kokoro speaks each paragraph (text between blank lines)
 as one chunk, so checks are reported per paragraph with its first line number:
 paragraphs too short (clipped) or too long (rushed / auto-split), curly
 apostrophes, " -- ", ALL CAPS, digits, symbols, abbreviations, emotion tags,
 HTML/SSML, emoji, Markdown emphasis, tables, code and URLs.
+Short headings and paragraphs are reported as one grouped warning each (--detail lists them
+one per line). Horizontal rules (---) are ignored, as generate.py strips them.
 Exit code 1 when any WARN is reported, 0 when clean (notes do not count).
 """
 
@@ -41,6 +43,16 @@ _MOODS = r"whisper\w*|excited|laugh\w*|sigh\w*|sad|angry|happy|calm|softly|shout
 EMOTION_TAG = re.compile(rf"\[(?:{_MOODS})\]|\((?:{_MOODS})\)", re.I)
 HTML_TAG = re.compile(r"</?[A-Za-z][^>]*>")
 EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿]")
+HORIZONTAL_RULE = re.compile(r"^(?:[-*_][ \t]*){3,}$")  # generate.py strips these lines
+NUMBER = re.compile(r"(?<![A-Za-z])\d[\d,.:/-]*")
+YEAR = re.compile(r"(?:1[0-9]|20)\d\d")  # Kokoro reads these as years, which is usually right
+ACCENTED = re.compile(r"[À-ÖØ-öø-ÿ]")
+# Words that mark a paragraph as another language (Afrikaans, Dutch, German, French, Spanish).
+FOREIGN_WORDS = {
+    "nog", "die", "het", "van", "een", "nie", "ek", "jy", "ons", "und", "der", "das", "ist", "nicht",
+    "le", "la", "les", "des", "est", "que", "pas", "el", "los", "las", "por", "una", "con",
+}
+FOREIGN_MARKER = re.compile(r"(?<![A-Za-z])'n(?![A-Za-z])")  # Afrikaans article
 
 
 def blocks(text: str):
@@ -67,7 +79,7 @@ def blocks(text: str):
             in_code = not in_code
         elif in_code:
             continue
-        elif not s:
+        elif not s or HORIZONTAL_RULE.match(s):
             if buf:
                 yield start, "text", " ".join(buf)
                 buf = []
@@ -91,11 +103,12 @@ def listed(items) -> str:
     return ", ".join(dict.fromkeys(items))
 
 
-def check(path: Path, wpm: int, quiet: bool) -> int:
+def check(path: Path, wpm: int, quiet: bool, detail: bool = False) -> int:
     raw = path.read_text(encoding="utf-8-sig")
     warnings: list[tuple[int, str]] = []
     notes: list[tuple[int, str]] = []
     sizes: list[int] = []
+    short: dict[str, list[tuple[int, int, str]]] = {"heading": [], "paragraph": []}
 
     for line, kind, para in blocks(raw):
         warn = lambda msg: warnings.append((line, msg))  # noqa: E731
@@ -125,8 +138,7 @@ def check(path: Path, wpm: int, quiet: bool) -> int:
         sizes.append(wc)
         label = "heading" if kind == "heading" else "paragraph"
         if wc < MIN_WORDS:
-            warn(f"{label} of {wc} words ({plain[:50]!r}): too short, sounds clipped; "
-                 "make it a full spoken sentence (8+ words) or merge it into the next paragraph")
+            short[label].append((line, wc, plain))
         elif cc > MAX_CHARS:
             warn(f"paragraph of {wc} words / {cc} chars: over ~480 chars gets rushed or auto-split; "
                  "break it into two paragraphs at a natural turn")
@@ -145,10 +157,23 @@ def check(path: Path, wpm: int, quiet: bool) -> int:
         if caps:
             warn(f"ALL CAPS {listed(caps)}: gives no extra emphasis and may be spelled out; "
                  "use normal case (keep caps for real acronyms)")
-        digits = [d.rstrip(".,:/-") for d in re.findall(r"(?<![A-Za-z])\d[\d,.:/-]*", plain)]
-        if digits:
-            warn(f"digits {listed(digits)}: spell out how each should be said "
-                 "(e.g. 'twenty twenty-six', 'three point five', 'forty-seven dollars')")
+        digits = [d.rstrip(".,:/-") for d in NUMBER.findall(plain)]
+        refs = [d for d in digits if re.fullmatch(r"\d+:\d+", d)]
+        risky = [d for d in digits if d not in refs and not (re.fullmatch(r"\d{1,2}", d) or YEAR.fullmatch(d))]
+        if refs:
+            warn(f"chapter:verse or time {listed(refs)}: the colon is read as a pause ('six, ten') and ranges "
+                 "as 'six six to eleven'; write 'Proverbs chapter six, verse ten' or 'verses six to eleven'")
+        if risky:
+            warn(f"digits {listed(risky)}: spell out how each should be said "
+                 "(e.g. 'three point five', 'forty-seven dollars', 'the third of April')")
+        elif digits and not refs:
+            note(f"digits {listed(digits)}: small numbers and years are read correctly; spell out if unsure")
+        foreign = [w for w in re.findall(r"[A-Za-z']+", plain.lower()) if w in FOREIGN_WORDS]
+        if FOREIGN_MARKER.search(plain) or len(foreign) >= 3:
+            warn("non-English text: a US voice reads it with English rules and garbles it (Afrikaans 'bietjie' "
+                 "becomes 'bee-etch-ee'); Kokoro does not support Afrikaans, so translate it into English and drop the original")
+        elif ACCENTED.search(plain):
+            note("accented letters: fine in names, but a whole foreign phrase is read with English rules")
         abbrs = ABBREVIATIONS.findall(plain)
         if abbrs:
             warn(f"abbreviations {listed(abbrs)}: write them out ('for example', 'Doctor', 'et cetera')")
@@ -164,6 +189,19 @@ def check(path: Path, wpm: int, quiet: bool) -> int:
             warn(f"symbols {' '.join(dict.fromkeys(syms))}: write them as words ('percent', 'and', 'dollars')")
         if "(" in plain:
             note("parentheses give no clear pause; consider commas or a separate sentence")
+
+    for label, items in short.items():
+        if not items:
+            continue
+        if detail or len(items) == 1:
+            for ln, wc, plain in items:
+                warnings.append((ln, f"{label} of {wc} words ({plain[:50]!r}): too short, sounds clipped; "
+                                     "make it a full spoken sentence (8+ words) or merge it into the next paragraph"))
+        else:
+            listing = "; ".join(f"{ln} {plain[:28]!r}" for ln, _, plain in items)
+            warnings.append((items[0][0], f"{len(items)} {label}s under {MIN_WORDS} words: each is spoken as its own "
+                             "clipped chunk; join runs of short lines into one paragraph of 20-60 words, or make "
+                             f"each a full spoken sentence. Lines: {listing}"))
 
     total = sum(sizes)
     median = sorted(sizes)[len(sizes) // 2] if sizes else 0
@@ -187,10 +225,11 @@ def main() -> int:
     ap.add_argument("files", nargs="+", type=Path)
     ap.add_argument("--wpm", type=int, default=150, help="words per minute for the length estimate (default 150)")
     ap.add_argument("--quiet", action="store_true", help="show warnings only, not notes")
+    ap.add_argument("--detail", action="store_true", help="list every short heading/paragraph on its own line")
     args = ap.parse_args()
     rc = 0
     for f in args.files:
-        rc |= check(f, args.wpm, args.quiet)
+        rc |= check(f, args.wpm, args.quiet, args.detail)
     return rc
 
 

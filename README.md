@@ -16,7 +16,7 @@ It is a tool, not an app: a command-line script (`generate.py`) and a small desk
 ## Features
 
 - Text or Markdown in, MP3 out. Markdown is cleaned before speaking (headings, links, code blocks and front matter are handled).
-- Desktop window with file, paste or drag-and-drop input, mood presets, voice, speed and pause controls.
+- Desktop window with file, paste or drag-and-drop input, mood presets, voice, speed and pause controls. Pasted or loaded Markdown is shown rendered (headings, bold, quotes, lists), with an **Edit** switch for the raw text.
 - **Preview** the opening of a script in a few seconds before committing to a full render.
 - **Pronunciation dictionary**: fix a word once (`Nkosi = en-KO-see`) and every script gets it.
 - **Loudness normalisation**: episodes come out at a steady, podcast-level volume.
@@ -56,7 +56,7 @@ The first time you use it, the model and each new voice download from Hugging Fa
 
 Double-click the desktop shortcut or `ui.bat`. The window opens full screen.
 
-1. Choose **File** and drop a script on the window or Browse to one (it is read where it is and never changed), or choose **Paste** and paste text. Pasted text is saved as `input\<name>.md` first.
+1. Choose **File** and drop a script on the window or Browse to one (it is read where it is and never changed), or choose **Paste** and paste text. Pasted text is saved as `input\<name>.md` first. Markdown shows as a rendered preview; click **Edit** (or press Ctrl+E) to change the raw text, and **Preview** to render it again.
 2. Pick a **Mood** preset, or set Voice, Speed (0.70 to 1.30) and Pause (0 to 3 s) yourself. Voice also accepts a blend such as `af_heart,af_bella`.
 3. Click **Preview** to hear the opening (about 15 seconds) with these settings. Nothing is saved.
 4. Click **Convert**. The MP3 is written to `output\<name>.mp3`. The model loads in the background when the window opens, so wait for "Ready".
@@ -68,6 +68,7 @@ Other controls: **Normalize loudness** (on by default) raises the volume to abou
 | Ctrl+Enter | Convert |
 | Ctrl+O | Browse for a script |
 | Ctrl+P | Preview (again to stop) |
+| Ctrl+E | Switch a Markdown script between Preview and Edit |
 | Ctrl+L | Clear |
 | Esc | Cancel a running conversion |
 | F5 | Refresh the file list |

@@ -119,6 +119,18 @@ This is the research behind the `tts-output` rules, gathered on 2026-09-29. It c
   - Source for the bug: https://github.com/hexgrad/misaki/issues/100
   - The same issue reports that `wasn’t` can be read as "was". The local test read it correctly, but use straight apostrophes anyway.
 - **Measured locally.** ` -- ` disappears, as described in section 2.
+- **Measured locally (2026-09-30, `af_kore`, phonemes only).** References and other languages:
+
+  | Text | Phonemes read as |
+  |---|---|
+  | `Proverbs 6:10` | "six", a pause, "ten" (the colon is kept as punctuation) |
+  | `Proverbs 6:6 to 11` | "six six to eleven" |
+  | `verses 9 to 11` | "verses nine to eleven" |
+  | `30 September`, `1983` | "thirty September", "nineteen eighty-three" |
+  | `Nog 'n bietjie slaap` (Afrikaans) | English rules: "nog en bee-etch-ee slap" |
+
+  So the linter warns on `N:N` and on foreign text, and only notes small numbers and years.
+- **Verified in code.** `generate.py` strips horizontal rules (`---`, `***`, `___`) before speaking, so they never reach the model and never add a pause. The linter skips them too. (An earlier linter version reported each one as a 0-word paragraph plus a false "`--` is dropped" warning.)
 - **Verified in code.** A mid-sentence stray pause usually means the phonemizer produced something odd. Check the phonemes, then rephrase or respell. Source: https://github.com/thewh1teagle/kokoro-onnx/issues/11
 
 ## 6. Voices

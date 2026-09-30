@@ -4,7 +4,7 @@ description: >-
   Write or rewrite text so a text-to-speech engine (tuned for Kokoro-82M, US
   English) reads it naturally and with the intended tone: calm, warm, serious,
   excited, urgent, sad. Produces a speech-ready .md/.txt narration script,
-  checks it with a bundled linter, and fixes what the linter flags. Invoked by
+  checks it with a bundled linter, and fixes what the linter flags. Output is always English: Afrikaans and other non-English text is translated, never left in. Invoked by
   the user only, e.g. "/tts-output 15-minute narration about X" or
   "/tts-output input\draft.md".
 argument-hint: "Topic to narrate, or a file to turn into a speech-ready script (optionally: length, mood, voice)"
@@ -19,7 +19,7 @@ The single most important fact: **Kokoro has no emotion control.** Its author sa
 
 ## Workflow
 
-1. **Pin down the brief** from the arguments and conversation: source (topic, notes, or file), target length, mood, audience, and output location. Ask only about what you cannot infer. Defaults: about 150 words per minute of audio, a documentary tone, and a `.md` file.
+1. **Pin down the brief** from the arguments and conversation: source (topic, notes, or file), target length, mood, audience, and output location. Ask only about what you cannot infer. Defaults: about 150 words per minute of audio, a documentary tone, a `.md` file, and **English only** (Kokoro cannot speak Afrikaans, so translate any Afrikaans source text or quotation into English; never leave it in the script).
 2. **Choose where the file goes.**
    - In the Kokoro project (`C:\Github\kokoro`, with `generate.py` and `input\`), write to `input\<name>.md` and follow that project's `AGENTS.md` and `kokoro-help` skill to render it. Never overwrite an existing file in `input\` or `output\` without asking.
    - Elsewhere, write where the user says, or next to the source file as `<name>.tts.md`.
@@ -27,9 +27,9 @@ The single most important fact: **Kokoro has no emotion control.** Its author sa
 3. **Write for the ear** using the rules below.
 4. **Lint it**, then fix every warning that matters and re-run until clean:
    ```
-   python "%USERPROFILE%\.claude\skills\tts-output\scripts\check_tts_script.py" path\to\script.md
+   python <this skill's folder>\scripts\check_tts_script.py path\to\script.md
    ```
-   In bash, the path is `"$USERPROFILE/.claude/skills/tts-output/scripts/check_tts_script.py"`. It uses only the Python standard library, so any Python 3.9+ works. In the Kokoro project, use `.venv\Scripts\python.exe`, not the system Python. Exit code 1 means warnings remain. Treat a warning as a strong hint, not a law: an acronym the linter doesn't know, or a deliberate short closing line, can stay if you judge it right. Say so in the report.
+   In the Kokoro project that is `.venv\Scripts\python.exe .agents\skills\tts-output\scripts\check_tts_script.py input\name.md` (never the system Python); elsewhere any Python 3.9+ works, because the linter uses only the standard library. Exit code 1 means warnings remain. Short headings and paragraphs come out as one grouped warning each, listing the line numbers (add `--detail` for one line each). If a group lists more than three or four lines, the script's structure is wrong: restructure it (see "Structure traps") instead of padding sentences. Treat a warning as a strong hint, not a law: an acronym the linter doesn't know, or a deliberate short closing line, can stay if you judge it right. Say so in the report.
 5. **Render if asked, or if you are in the Kokoro project and the user wants audio.** Use `generate.py <file>` and the `--speed`/`--pause`/`--voice` from the mood recipe. For a first listen, render a short excerpt to `output\previews\`.
 6. **Report briefly**: the file path, word count and estimated minutes, the recommended voice/speed/pause flags, and any lines the user should check by ear (names, questions, rare words).
 
@@ -68,6 +68,16 @@ The single most important fact: **Kokoro has no emotion control.** Its author sa
 - Kokoro reads a 4-digit number that isn't a year as a year ("1500" becomes "fifteen hundred"). `St.` is always "saint".
 - For a word that still sounds wrong, respell it phonetically or use Kokoro's `[word](/phonemes/)` syntax. In the Kokoro project, the `kokoro-help` skill has the phoneme checker.
 
+**Structure traps** (each one made a real script raise dozens of warnings; a 280-line devotional written the "page" way produced about 100):
+- **One sentence per paragraph.** Page layout puts every line of a list of parallel thoughts ("Just ten more minutes in bed." / "I will pray later." / "I will start tomorrow.") on its own line. Spoken, each becomes a clipped chunk with a 0.4 s gap. Write them as one paragraph of 20-60 words instead. Runs of short one-line paragraphs are the number one problem.
+- **Stacked headings.** `# Title`, `## Subtitle`, `### Scripture` back to back is three clipped chunks in a row. Open with one spoken sentence instead: "This is the morning reflection for the thirtieth of September, on the subject of good habits." Then use a heading only where it is a full sentence of 8+ words, or drop headings and let a paragraph break mark the topic change.
+- **Bold-only lines.** A line like `**"Just a little more."**` is a four-word paragraph; the bold is stripped anyway. Fold the phrase into the sentence that introduces it.
+- **Closings and salutations.** "Father," and "Amen." or "Thanks for listening." on their own lines are one- and two-word chunks. Fold them into the neighbouring paragraph ("Father, thank you for this morning, ..." and "... In Jesus' name, amen.").
+- **Horizontal rules** (`---`) are ignored: `generate.py` strips them and the linter skips them. They add no pause, so don't use them as a "long pause"; use a new paragraph.
+- **Scripture references and chapter:verse numbers**: `Proverbs 6:10` is read "Proverbs six, ten" and `6:6 to 11` as "six six to eleven". Write "Proverbs chapter six, verse ten" and "chapter six, verses six to eleven". The same goes for times written `10:30` when it matters: "half past ten".
+- **Write everything in English. Never include Afrikaans** (or any other non-English text) in the script, not even as a quotation, a verse, a greeting or a name of a song. Kokoro has no Afrikaans support: a US voice reads it with English rules and it comes out garbled ("bietjie" becomes "bee-etch-ee"). If the source material is in Afrikaans, or quotes it (a Bible verse in the 1983 translation, a proverb), translate it into natural English and say in the sentence that it is a translation if that matters ("In the Afrikaans Bible, the verse reads: ..."). Do not paste the original next to it. Only single names and loanwords (Pretoria, braai) may stay, respelled if they sound wrong. Other languages Kokoro does support (`e*` Spanish, `f*` French, ...) are only for a script the user explicitly asks to render in that language, as its own file with its own voice; the default is English.
+- **Small numbers and years are fine as digits** (`30 September`, `1983`): the linter only notes them. Spell out dates like `3/4/2026`, decimals, phone numbers, 4-digit non-year quantities and anything with a colon.
+
 **Keep out of narration**: tables, code, URLs, footnote markers, bullet-point fragments (turn lists into sentences), and "see above" or "as shown below".
 
 ## Mood recipes
@@ -76,14 +86,14 @@ Speed and pause are `generate.py` flags (`--speed`, `--pause`). Sentence shape i
 
 | Mood | Writing | `--speed` | `--pause` | Voice notes |
 |---|---|---|---|---|
-| Calm, documentary (default) | Medium to long sentences, 2–3 per paragraph, gentle transitions | 0.95–1.0 | 0.4–0.5 | `af_kore` (user default) or `af_heart` |
+| Calm, documentary (default) | Medium to long sentences, 2–3 per paragraph, gentle transitions | 0.95–1.0 | 0.4–0.5 | `af_kore` (project default) or `af_heart` |
 | Warm, reassuring | "You" and "we", contractions, softer words, longer sentences | 0.9–0.95 | 0.5–0.6 | `af_heart`, `af_bella`, or a Heart+Bella blend |
 | Serious, sad, reflective | Plain words, shorter paragraphs, a new paragraph before key lines | 0.85–0.9 | 0.7–1.0 | `af_heart`; slower speed does most of the work |
 | Excited, upbeat | Short punchy sentences grouped **inside** 30–50 word paragraphs, active verbs, "and then" momentum | 1.05–1.1 | 0.3 | `af_heart` or `af_bella`; Kore stays even |
 | Urgent, tense | Fragments inside a paragraph ("Three years. Two leaders. No money."), present tense | 1.05 | 0.3, then a single paragraph break for the reveal | Any |
 | Meditation, sleep | Long soft sentences, repetition, many short paragraphs of 20+ words | 0.8–0.85 | 1.5–3.0 | `af_heart`, `af_nicole` |
 
-Voice matters more than any punctuation trick. The official grades are `af_heart` A, `af_bella` A-, and `af_kore` C+. Kore is the user's chosen default and delivers evenly; if a script needs more warmth or energy, suggest a Heart or Bella preview rather than more exclamation marks. If real acting, whispering or voice cloning is needed, Kokoro can't do it; the researched next step is Chatterbox-Turbo.
+Voice matters more than any punctuation trick. The official grades are `af_heart` A, `af_bella` A-, and `af_kore` C+. Kore is the project default and delivers evenly; if a script needs more warmth or energy, suggest a Heart or Bella preview rather than more exclamation marks. If real acting, whispering or voice cloning is needed, Kokoro can't do it; the researched next step is Chatterbox-Turbo.
 
 ## Example
 
